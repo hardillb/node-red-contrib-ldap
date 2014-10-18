@@ -7,4 +7,4 @@ Takes base DN and filter
 
 Filter is a Mustashe template that will 
 
-Credentials done work yet
+Credentials don't work yet
