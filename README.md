@@ -5,13 +5,21 @@ Basic LDAP search node
 
 Takes base DN and filter
 
-Filter is a Mustashe template that will match against the whole msg object
+Filter is a Mustache (http://mustache.github.io/) template that will match against the whole msg object
 
 Bind is available
 
 TLS seams to crash node so disabled for now
 
 Depends on the LDAP npm module which uses the openldap libraries. Install with:
+
+ubuntu/debian:
+apt-get install libldap-dev
+
+fedora:
+yum install openldap-devel
+
+then:
 
 npm install LDAP
 
