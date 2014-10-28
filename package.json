@@ -5,7 +5,7 @@
     "dependencies": {
         "LDAP": "1.2.0"
     },
-    license: "Apache",
+    "license": "Apache",
     "repository" : {
         "type":"git",
         "url":"https://github.com/hardillb/node-red-contrib-ldap.git"
