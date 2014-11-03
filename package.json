@@ -1,5 +1,5 @@
 {
-    "name"         : "node-red-contrib-ldap",
+    "name"         : "node-red-node-ldap",
     "version"      : "0.0.1",
     "description"  : "A LDAP search node for Node-RED",
     "dependencies": {
