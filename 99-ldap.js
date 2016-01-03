@@ -14,7 +14,7 @@
 
 module.exports = function(RED) {
 	"use strict";
-	var LDAP = require("LDAP");
+	var LDAP = require("ldapjs")
 	var mustache = require("mustache");
 	// var util = require("util");
 
@@ -50,69 +50,69 @@ module.exports = function(RED) {
 		if (this.ldapServer) {
 			this.status({fill:"red",shape:"ring",text:"disconnected"});
 			var ldapOptions = {
-				uri:'ldap://' + this.ldapServer.server,
-				version: 3,
-				starttls: false,
-				connectiontimeout: 1,
-				reconnect: true
+				url:'ldap://' + this.ldapServer.server,
+				ConnectTimeout: 1000
 
 			};
 			if (this.ldapServer.tls) {
+				ldapOptions.url = "ldaps" + ldapOptions.substring(4);
 				if (this.ldapServer.port !== 636) {
-					ldapOptions.uri = ldapOptions.uri + ":" + this.ldapServer.port;
+					ldapOptions.url = ldapOptions.url + ":" + this.ldapServer.port;
 				}
 			} else {
 				if (this.ldapServer.port !== 389) {
-					ldapOptions.uri = ldapOptions.uri + ":" + this.ldapServer.port;
+					ldapOptions.url = ldapOptions.url + ":" + this.ldapServer.port;
 				}
 			}
 
-			// this.log(util.inspect(ldapOptions));
-
-			this.ldap = new LDAP(ldapOptions);
+			this.ldap = LDAP.createClient(ldapOptions);
 			var node = this
 			this.status({fill:"red",shape:"ring",text:"disconnected"});
-			this.ldap.open(function(err){
-				if (err) {
-					node.error("error opening connection to " + node.ldapServer.server +"\n" + err);
-					node.status({fill:"red",shape:"ring",text:"disconnected"});
-					return;
-				}
-
-				node.status({fill:"green",shape:"dot",text:"connected"});
+			if (credentials && credentials.binddn && credentials.password) {
+				node.ldap.bind(credentials.binddn, credentials.password,function(err){
+					if (err) {
+						node.error("failed to bind - " + err);
+					} else {
+						node.status({fill:"green",shape:"dot",text:"bound"});
+						node.connected = true;
+					}
+				});
+			} else {
+				node.status({fill:"green",shape:"dot",text:"bound"});
 				node.connected = true;
+			}
 
-				if (credentials && credentials.binddn && credentials.password) {
-					var bindOptions = {
-						binddn: credentials.binddn,
-						password: credentials.password
-					};
-
-					node.ldap.simplebind(bindOptions, function(err){
-						if (err) {
-							node.error("failed to bind - " + err);
-						} else {
-							node.status({fill:"green",shape:"dot",text:"bound"});
-						}
-					});
-				}
-
-			});
 			this.on('input', function(msg){
 				if (node.connected) {
+
 					var options = {
-						base: node.base,
-						scope: '',
 						filter: mustache.render(node.filter,msg),
-						attrs: ''
+						scope: 'sub'
+						//attributes: []
 					};
-					node.ldap.search(options, function(err,data){
-						if (node.topic) {
-							msg.topic = node.topic;
+					node.ldap.search(node.base, options, function(err,res){
+
+						if (err) {
+							console.log(err);
 						}
 
-						msg.payload = data;
-						node.send(msg);
+						var data = [];
+
+						res.on('searchEntry', function(entry){
+							data.push(entry.object);
+						});
+
+						res.on('error', function(error){
+							node.error("search error");
+						});
+
+						res.on('end', function(){
+							if (node.topic) {
+								msg.topic = node.topic;
+							}
+							msg.payload = data;
+							node.send(msg);
+						});
 					});
 				} else {
 					node.error("not connected");
@@ -120,7 +120,7 @@ module.exports = function(RED) {
 			});
 			this.on('close',function() {
 				if(node.ldap) {
-					node.ldap.close();
+					node.ldap.unbind();
 				}
 			});
 		}

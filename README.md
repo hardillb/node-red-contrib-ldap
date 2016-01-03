@@ -1,29 +1,28 @@
 node-red-contrib-ldap
 =====================
 
-Basic LDAP search node
+A basic LDAP search node
 
-Takes base DN and filter
+Supports connecting to ldap servers with or without a DN/Password to bind to and with TLS support
 
-Filter is a Mustache (http://mustache.github.io/) template that will match against the whole msg object
+The filter is a Mustache (http://mustache.github.io/) template that will match against the whole msg object. So if you have a msg object that looks like this:
 
-Bind is available
+```
+{
+	topic: 'ldap',
+	payload: {
+		foo: 'bar',
+		email: 'bob@example.com'
+	},
+	_msgid: '32ff28b4.cd00d8'
+}
+```
 
-TLS seams to crash node so disabled for now
+You can build a filter that looks like this:
 
-Depends on the LDAP npm module which uses the openldap libraries. Install with:
-
-ubuntu/debian:
-apt-get install libldap-dev
-
-fedora:
-yum install openldap-devel
-
-then:
-
-npm install LDAP
-
-Only tested on Linux so far
+```
+mail={{payload.email}}
+```
 
 Example flow using the forumsys.com public test ldap (http://www.forumsys.com/tutorials/integration-how-to/ldap/online-ldap-test-server/) 
 ```
