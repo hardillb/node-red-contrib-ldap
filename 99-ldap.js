@@ -14,7 +14,7 @@
 
 module.exports = function(RED) {
 	"use strict";
-	var LDAP = require("LDAP");
+	var LDAP = require("ldapjs")
 	var mustache = require("mustache");
 	// var util = require("util");
 
@@ -47,80 +47,100 @@ module.exports = function(RED) {
 		this.topic = n.topic;
 		this.ldapServer = RED.nodes.getNode(this.server);
 		var credentials = RED.nodes.getCredentials(this.server);
-		if (this.ldapServer) {
-			this.status({fill:"red",shape:"ring",text:"disconnected"});
+		var node = this
+		if (node.ldapServer) {
+			node.status({fill:"red",shape:"ring",text:"disconnected"});
 			var ldapOptions = {
-				uri:'ldap://' + this.ldapServer.server,
-				version: 3,
-				starttls: false,
-				connectiontimeout: 1,
-				reconnect: true
+				url:'ldap://' + node.ldapServer.server,
+				ConnectTimeout: 1000
 
 			};
-			if (this.ldapServer.tls) {
-				if (this.ldapServer.port !== 636) {
-					ldapOptions.uri = ldapOptions.uri + ":" + this.ldapServer.port;
+			if (node.ldapServer.tls) {
+				ldapOptions.url = "ldaps" + ldapOptions.substring(4);
+				if (node.ldapServer.port !== 636) {
+					ldapOptions.url = ldapOptions.url + ":" + node.ldapServer.port;
 				}
 			} else {
-				if (this.ldapServer.port !== 389) {
-					ldapOptions.uri = ldapOptions.uri + ":" + this.ldapServer.port;
+				if (node.ldapServer.port !== 389) {
+					ldapOptions.url = ldapOptions.url + ":" + node.ldapServer.port;
 				}
 			}
 
-			// this.log(util.inspect(ldapOptions));
-
-			this.ldap = new LDAP(ldapOptions);
-			var node = this
-			this.status({fill:"red",shape:"ring",text:"disconnected"});
-			this.ldap.open(function(err){
-				if (err) {
-					node.error("error opening connection to " + node.ldapServer.server +"\n" + err);
-					node.status({fill:"red",shape:"ring",text:"disconnected"});
-					return;
-				}
-
-				node.status({fill:"green",shape:"dot",text:"connected"});
-				node.connected = true;
-
+			node.ldapOptions = ldapOptions;
+			function connect() {
+				node.ldap = LDAP.createClient(ldapOptions);
+				
+				node.status({fill:"red",shape:"ring",text:"disconnected"});
 				if (credentials && credentials.binddn && credentials.password) {
-					var bindOptions = {
-						binddn: credentials.binddn,
-						password: credentials.password
-					};
-
-					node.ldap.simplebind(bindOptions, function(err){
+					node.ldap.bind(credentials.binddn, credentials.password,function(err){
 						if (err) {
 							node.error("failed to bind - " + err);
 						} else {
 							node.status({fill:"green",shape:"dot",text:"bound"});
+							node.connected = true;
 						}
 					});
+				} else {
+					node.status({fill:"green",shape:"dot",text:"bound"});
+					node.connected = true;
 				}
 
-			});
-			this.on('input', function(msg){
+				node.ldap.on('error',function(err){
+					node.log("LDAP Connection Error: " + err);
+					node.ldap.unbind();
+					node.status({fill:"red",shape:"ring",text:"disconnected"});
+					node.reconnectTimer = setTimeout(function(){
+						node.reconnectTimer = undefined;
+						connect();	
+					},2000);
+					
+				});
+			}
+
+			connect();
+
+			node.on('input', function(msg){
 				if (node.connected) {
+
 					var options = {
-						base: node.base,
-						scope: '',
 						filter: mustache.render(node.filter,msg),
-						attrs: ''
+						scope: 'sub'
+						//attributes: []
 					};
-					node.ldap.search(options, function(err,data){
-						if (node.topic) {
-							msg.topic = node.topic;
+					node.ldap.search(node.base, options, function(err,res){
+
+						if (err) {
+							console.log(err);
 						}
 
-						msg.payload = data;
-						node.send(msg);
+						var data = [];
+
+						res.on('searchEntry', function(entry){
+							data.push(entry.object);
+						});
+
+						res.on('error', function(error){
+							node.error("search error");
+						});
+
+						res.on('end', function(){
+							if (node.topic) {
+								msg.topic = node.topic;
+							}
+							msg.payload = data;
+							node.send(msg);
+						});
 					});
 				} else {
 					node.error("not connected");
 				}
 			});
-			this.on('close',function() {
+			node.on('close',function() {
+				if (node.reconnectTimer) {
+					clearTimout(node.reconnectTimer);
+				}
 				if(node.ldap) {
-					node.ldap.close();
+					node.ldap.unbind();
 				}
 			});
 		}
