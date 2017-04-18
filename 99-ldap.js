@@ -87,7 +87,7 @@ module.exports = function(RED) {
 
 				node.ldap.on('error',function(err){
 					node.log("LDAP Connection Error: " + err);
-					node.ldap.unbind();
+					//node.ldap.unbind();
 					node.status({fill:"red",shape:"ring",text:"disconnected"});
 					node.reconnectTimer = setTimeout(function(){
 						node.reconnectTimer = undefined;
@@ -140,7 +140,11 @@ module.exports = function(RED) {
 					clearTimout(node.reconnectTimer);
 				}
 				if(node.ldap) {
+					try {
 					node.ldap.unbind();
+					} catch (exp) {
+						
+					}
 				}
 			});
 		}
