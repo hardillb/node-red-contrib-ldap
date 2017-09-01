@@ -18,8 +18,7 @@ module.exports = function(RED) {
 	const mustache = require("mustache");
 	const fs = require('fs');
 	// const util = require("util");
-
-	var connection;
+	// let connection;
 
 	function ldapNode(config) {
 		RED.nodes.createNode(this,config);
@@ -97,7 +96,7 @@ module.exports = function(RED) {
 						});
 
 						res.on('error', function(error){
-							node.error("search error");
+							node.error("ldap search error:", error);
 						});
 
 						res.on('end', function(){
@@ -114,7 +113,7 @@ module.exports = function(RED) {
 			});
 			node.on('close',function() {
 				if (node.reconnectTimer) {
-					clearTimout(node.reconnectTimer);
+					clearTimeout(node.reconnectTimer);
 				}
 				if(node.ldap) {
 					try {
@@ -158,4 +157,4 @@ module.exports = function(RED) {
     }
 
 	RED.nodes.registerType("ldap out",LDAPOutNode);
-}
+};
