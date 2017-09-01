@@ -14,18 +14,19 @@
 
 module.exports = function(RED) {
 	"use strict";
-	var LDAP = require("ldapjs")
-	var mustache = require("mustache");
-	// var util = require("util");
+	const LDAP = require("ldapjs");
+	const mustache = require("mustache");
+	const fs = require('fs');
+	// const util = require("util");
 
 	var connection;
 
-	function ldapNode(n) {
-		RED.nodes.createNode(this,n);
+	function ldapNode(config) {
+		RED.nodes.createNode(this,config);
 
-		this.server = n.server;
-		this.port = n.port;
-		this.tls = n.tls;
+		this.server = config.server;
+		this.port = config.port;
+		this.tls = config.tls;
 		if (this.credentials) {
             this.binddn = this.credentials.binddn;
             this.password = this.credentials.password;
@@ -39,24 +40,29 @@ module.exports = function(RED) {
         }
     });
 
-	function LDAPOutNode(n) {
-		RED.nodes.createNode(this,n);
-		this.server = n.server;
-		this.base = n.base;
-		this.filter = n.filter;
-		this.topic = n.topic;
+    function LDAPOutNode(config) {
+		RED.nodes.createNode(this,config);
+		this.server = config.server;
+		this.base = config.base;
+		this.filter = config.filter;
+		this.topic = config.topic;
+		this.tlsCert = config.tlsCert;
 		this.ldapServer = RED.nodes.getNode(this.server);
-		var credentials = RED.nodes.getCredentials(this.server);
-		var node = this
+		let credentials = RED.nodes.getCredentials(this.server);
+		let node = this;
 		if (node.ldapServer) {
 			node.status({fill:"red",shape:"ring",text:"disconnected"});
-			var ldapOptions = {
+			const ldapOptions = {
 				url:'ldap://' + node.ldapServer.server,
 				ConnectTimeout: 1000
-
 			};
+
 			if (node.ldapServer.tls) {
-				ldapOptions.url = "ldaps" + ldapOptions.substring(4);
+				ldapOptions.url = "ldaps://" + node.ldapServer.server;
+				ldapOptions.tlsOptions = {
+					ca: [fs.readFileSync(node.tlsCert)]
+				};
+
 				if (node.ldapServer.port !== 636) {
 					ldapOptions.url = ldapOptions.url + ":" + node.ldapServer.port;
 				}
@@ -67,42 +73,13 @@ module.exports = function(RED) {
 			}
 
 			node.ldapOptions = ldapOptions;
-			function connect() {
-				node.ldap = LDAP.createClient(ldapOptions);
-				
-				node.status({fill:"red",shape:"ring",text:"disconnected"});
-				if (credentials && credentials.binddn && credentials.password) {
-					node.ldap.bind(credentials.binddn, credentials.password,function(err){
-						if (err) {
-							node.error("failed to bind - " + err);
-						} else {
-							node.status({fill:"green",shape:"dot",text:"bound"});
-							node.connected = true;
-						}
-					});
-				} else {
-					node.status({fill:"green",shape:"dot",text:"bound"});
-					node.connected = true;
-				}
 
-				node.ldap.on('error',function(err){
-					node.log("LDAP Connection Error: " + err);
-					//node.ldap.unbind();
-					node.status({fill:"red",shape:"ring",text:"disconnected"});
-					node.reconnectTimer = setTimeout(function(){
-						node.reconnectTimer = undefined;
-						connect();	
-					},2000);
-					
-				});
-			}
-
-			connect();
+			connect(node, credentials);
 
 			node.on('input', function(msg){
 				if (node.connected) {
 
-					var options = {
+					const options = {
 						filter: mustache.render(node.filter,msg),
 						scope: 'sub'
 						//attributes: []
@@ -113,7 +90,7 @@ module.exports = function(RED) {
 							console.log(err);
 						}
 
-						var data = [];
+						let data = [];
 
 						res.on('searchEntry', function(entry){
 							data.push(entry.object);
@@ -149,6 +126,36 @@ module.exports = function(RED) {
 			});
 		}
 	}
+
+    function connect(node, credentials) {
+        node.ldap = LDAP.createClient(ldapOptions);
+
+        node.status({fill:"red",shape:"ring",text:"disconnected"});
+        if (credentials && credentials.binddn && credentials.password) {
+            node.ldap.bind(credentials.binddn, credentials.password,function(err){
+                if (err) {
+                    node.error("failed to bind - " + err);
+                } else {
+                    node.status({fill:"green",shape:"dot",text:"bound"});
+                    node.connected = true;
+                }
+            });
+        } else {
+            node.status({fill:"green",shape:"dot",text:"bound"});
+            node.connected = true;
+        }
+
+        node.ldap.on('error',function(err){
+            node.log("LDAP Connection Error: " + err);
+            //node.ldap.unbind();
+            node.status({fill:"red",shape:"ring",text:"disconnected"});
+            node.reconnectTimer = setTimeout(function(){
+                node.reconnectTimer = undefined;
+                connect(node, credentials);
+            },2000);
+
+        });
+    }
 
 	RED.nodes.registerType("ldap out",LDAPOutNode);
 }
