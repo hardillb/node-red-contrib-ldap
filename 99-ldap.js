@@ -26,6 +26,7 @@ module.exports = function(RED) {
 		this.server = config.server;
 		this.port = config.port;
 		this.tls = config.tls;
+        this.tlsCert = config.tlsCert;
 		if (this.credentials) {
             this.binddn = this.credentials.binddn;
             this.password = this.credentials.password;
@@ -45,7 +46,6 @@ module.exports = function(RED) {
 		this.base = config.base;
 		this.filter = config.filter;
 		this.topic = config.topic;
-		this.tlsCert = config.tlsCert;
 		this.ldapServer = RED.nodes.getNode(this.server);
 		let credentials = RED.nodes.getCredentials(this.server);
 		let node = this;
@@ -58,9 +58,11 @@ module.exports = function(RED) {
 
 			if (node.ldapServer.tls) {
 				ldapOptions.url = "ldaps://" + node.ldapServer.server;
-				ldapOptions.tlsOptions = {
-					ca: [fs.readFileSync(node.tlsCert)]
-				};
+				if (typeof node.ldapServer.tlsCert === 'string' && node.ldapServer.tlsCert) {
+                    ldapOptions.tlsOptions = {
+                        ca: [fs.readFileSync(node.ldapServer.tlsCert)]
+                    };
+                }
 
 				if (node.ldapServer.port !== 636) {
 					ldapOptions.url = ldapOptions.url + ":" + node.ldapServer.port;
