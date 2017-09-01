@@ -129,7 +129,7 @@ module.exports = function(RED) {
 	}
 
     function connect(node, credentials) {
-        node.ldap = LDAP.createClient(ldapOptions);
+        node.ldap = LDAP.createClient(node.ldapOptions);
 
         node.status({fill:"red",shape:"ring",text:"disconnected"});
         if (credentials && credentials.binddn && credentials.password) {
