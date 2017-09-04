@@ -26,21 +26,21 @@ module.exports = function(RED) {
 		this.server = config.server;
 		this.port = config.port;
 		this.tls = config.tls;
-        this.tlsCert = config.tlsCert;
+		this.tlsCert = config.tlsCert;
 		if (this.credentials) {
-            this.binddn = this.credentials.binddn;
-            this.password = this.credentials.password;
-        }
+			this.binddn = this.credentials.binddn;
+			this.password = this.credentials.password;
+		}
 	}
 
 	RED.nodes.registerType("ldap",ldapNode,{
-        credentials: {
-            binddn: {type:"text"},
-            password: {type: "password"}
-        }
-    });
+		credentials: {
+			binddn: {type:"text"},
+			password: {type: "password"}
+		}
+	});
 
-    function LDAPOutNode(config) {
+	function LDAPOutNode(config) {
 		RED.nodes.createNode(this,config);
 		this.server = config.server;
 		this.base = config.base;
@@ -59,10 +59,10 @@ module.exports = function(RED) {
 			if (node.ldapServer.tls) {
 				ldapOptions.url = "ldaps://" + node.ldapServer.server;
 				if (typeof node.ldapServer.tlsCert === 'string' && node.ldapServer.tlsCert) {
-                    ldapOptions.tlsOptions = {
-                        ca: [fs.readFileSync(node.ldapServer.tlsCert)]
-                    };
-                }
+					ldapOptions.tlsOptions = {
+						ca: [fs.readFileSync(node.ldapServer.tlsCert)]
+					};
+				}
 
 				if (node.ldapServer.port !== 636) {
 					ldapOptions.url = ldapOptions.url + ":" + node.ldapServer.port;
@@ -128,35 +128,35 @@ module.exports = function(RED) {
 		}
 	}
 
-    function connect(node, credentials) {
-        node.ldap = LDAP.createClient(node.ldapOptions);
+	function connect(node, credentials) {
+		node.ldap = LDAP.createClient(node.ldapOptions);
 
-        node.status({fill:"red",shape:"ring",text:"disconnected"});
-        if (credentials && credentials.binddn && credentials.password) {
-            node.ldap.bind(credentials.binddn, credentials.password,function(err){
-                if (err) {
-                    node.error("failed to bind - " + err);
-                } else {
-                    node.status({fill:"green",shape:"dot",text:"bound"});
-                    node.connected = true;
-                }
-            });
-        } else {
-            node.status({fill:"green",shape:"dot",text:"bound"});
-            node.connected = true;
-        }
+		node.status({fill:"red",shape:"ring",text:"disconnected"});
+		if (credentials && credentials.binddn && credentials.password) {
+			node.ldap.bind(credentials.binddn, credentials.password,function(err){
+				if (err) {
+					node.error("failed to bind - " + err);
+				} else {
+					node.status({fill:"green",shape:"dot",text:"bound"});
+					node.connected = true;
+				}
+			});
+		} else {
+			node.status({fill:"green",shape:"dot",text:"bound"});
+			node.connected = true;
+		}
 
-        node.ldap.on('error',function(err){
-            node.log("LDAP Connection Error: " + err);
-            //node.ldap.unbind();
-            node.status({fill:"red",shape:"ring",text:"disconnected"});
-            node.reconnectTimer = setTimeout(function(){
-                node.reconnectTimer = undefined;
-                connect(node, credentials);
-            },2000);
+		node.ldap.on('error',function(err){
+			node.log("LDAP Connection Error: " + err);
+			//node.ldap.unbind();
+			node.status({fill:"red",shape:"ring",text:"disconnected"});
+			node.reconnectTimer = setTimeout(function(){
+				node.reconnectTimer = undefined;
+				connect(node, credentials);
+			},2000);
 
-        });
-    }
+		});
+	}
 
 	RED.nodes.registerType("ldap out",LDAPOutNode);
 };
