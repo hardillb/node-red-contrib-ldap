@@ -1,6 +1,6 @@
 {
   "name": "node-red-node-ldap",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "A LDAP search node for Node-RED",
   "dependencies": {
     "ldapjs": "^2.3.1",
