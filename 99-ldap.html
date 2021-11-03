@@ -41,6 +41,10 @@
         <label for="node-config-input-password"><i class="fa fa-lock"> Password</i></label>
         <input type="password" id="node-config-input-password">
     </div>
+    <div class="form-row">
+        <label for="node-config-input-name"><i class="fa fa-tag"> Name</i></label>
+        <input type="text" id="node-config-input-name">
+    </div>
 </script>
 
 <script type="text/html" data-help-name="ldap">
@@ -57,7 +61,8 @@
             port: {value:389,required:true,validate:RED.validators.number()},
             tls: {value: false},
             tlsCert: {value: ''},
-            tlsConfig: {    type:"tls-config",required: false}
+            tlsConfig: {    type:"tls-config",required: false},
+            name: {required:false}
         },
         credentials: {
             binddn: {type:"text"},
@@ -78,7 +83,7 @@
                     p = ":"+ this.port
                 } 
             }
-            return protocol + this.server + p;
+            return this.name||protocol + this.server + p;
         },
         oneditprepare: function() {
             $("#node-config-input-tls").change(function() {
@@ -149,7 +154,9 @@
         outputs:1,
         icon: "watch.png",
         label: function() {
-            return this.name||this.topic||"ldap search";
+            var server = RED.nodes.node(this.server)
+            server.label()
+            return this.name||(server?server.label():"ldap search");
         },
         labelStyle: function() {
             return this.name?"node_label_italic":"";
