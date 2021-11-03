@@ -14,7 +14,7 @@
   limitations under the License.
 -->
 
-<script type="text/x-red" data-template-name="ldap">
+<script type="text/html" data-template-name="ldap">
     <div class="form-row node-input-server">
         <label for="node-config-input-server"><i class="fa fa-globe"> Server</i></label>
         <input class="input-append-left" type="text" id="node-config-input-server" placeholder="localhost" style="width: 40%;" >
@@ -23,11 +23,15 @@
     </div>
     <div class="form-row">
         <label for="node-config-input-tls" style="margin-left: 22%; width: 60px"><i> Use TLS</i></label>
-        <input id="node-config-input-tls" style="width: 20px" type="checkbox" checked=false>
+        <input id="node-config-input-tls" style="width: 20px" type="checkbox">
     </div>
-    <div class="form-row">
+    <div class="form-row" hidden="hidden">
         <label for="node-config-input-tlsCert"><i class="fa fa-lock"> Path to TLS cert file (.pem)</i></label>
         <input type="text" id="node-config-input-tlsCert">
+    </div>
+    <div class="form-row" id="ldap-config-tls" hidden="hidden">
+        <label style="width: auto; margin-left: 20px; margin-right: 10px;" for="node-config-input-tlsConfig"><i class="fa fa-lock"> TLS Config</i></label>
+        <input type="text" style="width: 300px" id="node-config-input-tlsConfig">
     </div>
     <div class="form-row">
         <label for="node-config-input-binddn"><i class="fa fa-user"> Bind DN</i></label>
@@ -39,44 +43,69 @@
     </div>
 </script>
 
+<script type="text/html" data-help-name="ldap">
+    <p>LDAP Server node</p>
+    <p>Takes a hostname and port, along with the an optional TLS configuration.</p>
+    <p>Also optional Bind DN and password if needed to authenticate with the server.</p>
+</script>
+
 <script type="text/javascript">
     RED.nodes.registerType('ldap',{
         category: 'config',
         defaults: {
-            server: {value:"",required:true},
+            server: {value:"localhost", required:true},
             port: {value:389,required:true,validate:RED.validators.number()},
             tls: {value: false},
             tlsCert: {value: ''},
+            tlsConfig: {    type:"tls-config",required: false}
         },
         credentials: {
             binddn: {type:"text"},
             password: {type: "password"}
         },
         label: function() {
-            if (this.server == "") { this.server = "localhost"; }
-            return this.server+":"+this.port;
+            let protocol = "ldap://"
+            let p = "";
+            if (this.tls) {
+                protocol = "ldaps://"
+                if (this.port != 636) {
+                    p = ":" + this.port
+                } else {
+                    p = ""
+                }
+            } else {
+                if (this.port != 389) {
+                    p = ":"+ this.port
+                } 
+            }
+            return protocol + this.server + p;
         },
         oneditprepare: function() {
-             $("#node-config-input-tls").change(function() {
-                 var port = $("#node-config-input-port").val();
-                 var tls = $("#node-config-input-tls").is(':checked');
-                 if (tls === true) {
-                     $("#node-config-input-tlsCert").parent().removeAttr('hidden');
-                     if (port == 389) {
-                         $("#node-config-input-port").val(636);
-                     }
-                 } else {
-                     $("#node-config-input-tlsCert").parent().attr('hidden', 'true');
-                     if (port == 636) {
-                         $("#node-config-input-port").val(389);
-                     }
-                 }
+            $("#node-config-input-tls").change(function() {
+                var port = $("#node-config-input-port").val();
+                var tls = $("#node-config-input-tls").is(':checked');
+                if (tls === true) {
+                    if ($("#node-config-input-tlsCert").val()) {
+                        $("#node-config-input-tlsCert").parent().removeAttr('hidden');
+                    } else {
+                        $("#ldap-config-tls").removeAttr('hidden');
+                    }
+                    if (port == 389) {
+                        $("#node-config-input-port").val(636);
+                    }
+                } else {
+                    $("#node-config-input-tlsCert").parent().attr('hidden', 'true');
+                    $("#ldap-config-tls").attr('hidden', 'true');
+                    if (port == 636) {
+                        $("#node-config-input-port").val(389);
+                    }
+                }
              });
         }
     });
 </script>
 
-<script type="text/x-red" data-template-name="ldap out">
+<script type="text/html" data-template-name="ldap out">
     <div class="form-row">
         <label for="node-input-server"><i class="fa fa-globe"></i> Server</label>
         <input type="text" id="node-input-server">
@@ -99,7 +128,7 @@
     </div>
 </script>
 
-<script type="text/x-red" data-help-name="ldap out">
+<script type="text/html" data-help-name="ldap out">
     <p>LDAP Search node</p>
     <p>Filter is a mustache capable field e.g. <i>mail={{payload.email}}</i> will take the email field from the msg.payload and insert it in the correct place</p>
     <p>The node returns an array of objects that represent matching records in the LDAP</p>
@@ -120,10 +149,11 @@
         outputs:1,
         icon: "watch.png",
         label: function() {
-            return this.name||this.topic||"ldap";
+            return this.name||this.topic||"ldap search";
         },
         labelStyle: function() {
             return this.name?"node_label_italic":"";
-        }
+        },
+        paletteLabel: "ldap Search"
     });
 </script>

@@ -27,6 +27,8 @@ module.exports = function(RED) {
 		this.port = config.port;
 		this.tls = config.tls;
 		this.tlsCert = config.tlsCert;
+		this.tlsConf = config.tlsConfig;
+		this.tlsConfig = RED.nodes.getNode(this.tlsConf);
 		if (this.credentials) {
 			this.binddn = this.credentials.binddn;
 			this.password = this.credentials.password;
@@ -49,6 +51,7 @@ module.exports = function(RED) {
 		this.ldapServer = RED.nodes.getNode(this.server);
 		let credentials = RED.nodes.getCredentials(this.server);
 		let node = this;
+
 		if (node.ldapServer) {
 			node.status({fill:"red",shape:"ring",text:"disconnected"});
 			const ldapOptions = {
@@ -57,8 +60,14 @@ module.exports = function(RED) {
 			};
 
 			if (node.ldapServer.tls) {
-				ldapOptions.url = "ldaps://" + node.ldapServer.server;
-				if (typeof node.ldapServer.tlsCert === 'string' && node.ldapServer.tlsCert) {
+				ldapOptions.url = "ldaps://" + node.ldapServer.server;	
+
+				if (node.ldapServer.tlsConf) {
+
+					ldapOptions.tlsOptions = {};
+					node.ldapServer.tlsConfig.addTLSOptions(ldapOptions.tlsOptions);
+
+				} else if (typeof node.ldapServer.tlsCert === 'string' && node.ldapServer.tlsCert) {
 					ldapOptions.tlsOptions = {
 						ca: [fs.readFileSync(node.ldapServer.tlsCert)]
 					};
@@ -67,6 +76,7 @@ module.exports = function(RED) {
 				if (node.ldapServer.port !== 636) {
 					ldapOptions.url = ldapOptions.url + ":" + node.ldapServer.port;
 				}
+
 			} else {
 				if (node.ldapServer.port !== 389) {
 					ldapOptions.url = ldapOptions.url + ":" + node.ldapServer.port;
