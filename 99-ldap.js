@@ -56,7 +56,7 @@ module.exports = function(RED) {
 			node.status({fill:"red",shape:"ring",text:"disconnected"});
 			const ldapOptions = {
 				url:'ldap://' + node.ldapServer.server,
-				ConnectTimeout: 1000
+				ConnectTimeout: 10000
 			};
 
 			if (node.ldapServer.tls) {
@@ -87,7 +87,9 @@ module.exports = function(RED) {
 
 			connect(node, credentials);
 
-			node.on('input', function(msg){
+			node.on('input', function(msg, send, done){
+
+				send = send || function() { node.send.apply(node,arguments) }
 				if (node.connected) {
 
 					const options = {
@@ -116,14 +118,22 @@ module.exports = function(RED) {
 								msg.topic = node.topic;
 							}
 							msg.payload = data;
-							node.send(msg);
+							send(msg);
+							if (done) {
+								done();
+							}
 						});
 					});
 				} else {
-					node.error("not connected");
+					if (done) {
+						done("node connected");
+					} else {
+						node.error("not connected",msg);
+					}
 				}
+				
 			});
-			node.on('close',function() {
+			node.on('close',function(done) {
 				if (node.reconnectTimer) {
 					clearTimeout(node.reconnectTimer);
 				}
@@ -133,6 +143,7 @@ module.exports = function(RED) {
 					} catch (exp) {
 						
 					}
+					done();
 				}
 			});
 		}
@@ -152,7 +163,7 @@ module.exports = function(RED) {
 				}
 			});
 		} else {
-			node.status({fill:"green",shape:"dot",text:"bound"});
+			node.status({fill:"green",shape:"dot",text:"connected"});
 			node.connected = true;
 		}
 
@@ -163,7 +174,7 @@ module.exports = function(RED) {
 			node.reconnectTimer = setTimeout(function(){
 				node.reconnectTimer = undefined;
 				connect(node, credentials);
-			},2000);
+			},5000);
 
 		});
 	}
